@@ -131,5 +131,6 @@ class Wep(object):
 
         ## Add the ICV
         #encodedPacket[Dot11WEP].icv = int(self.pt.endSwap(hex(crc32(str(encodedPacket[Dot11])[0:-4]) & 0xffffffff)), 16)
-        encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -4), 16)
+        # encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -4), 16)
+        encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -2), 16)
         return encodedPacket
