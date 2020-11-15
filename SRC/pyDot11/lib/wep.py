@@ -129,8 +129,13 @@ class Wep(object):
         elif encodedPacket[Dot11].FCfield == 2:
             encodedPacket[Dot11].FCfield = 66
 
+
+### Why is the FCS blown away to nothing at this point.
+
+
         ## Add the ICV
-        #encodedPacket[Dot11WEP].icv = int(self.pt.endSwap(hex(crc32(str(encodedPacket[Dot11])[0:-4]) & 0xffffffff)), 16)
-        # encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -4), 16)
-        encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -2), 16)
+        bRip = self.pt.byteRip(encodedPacket[Dot11], chop = True, qty = 4, output = 'str')   ### GOT IT <<
+        encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(bRip), 16)
+        # encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -2), 16)
+        print('ran -4?  Why are we doing ICV, again? ---> So our ICMP FCS is correct')
         return encodedPacket
