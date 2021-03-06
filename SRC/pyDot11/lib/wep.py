@@ -1,14 +1,16 @@
+import binascii
+import packetEssentials as PE
+import re
 from rc4 import rc4
 from scapy.layers.dot11 import Dot11, Dot11WEP, RadioTap
 from scapy.layers.l2 import LLC
 from scapy.packet import Padding
 from scapy.utils import hexstr
 from zlib import crc32
-import binascii
-import packetEssentials as PE
 
 class Wep(object):
-    """All things WEP related"""
+    """All things WEP related
+    Only works proper in Python2x for the time being"""
 
     def __init__(self):
         self.pt = PE.pt
@@ -16,25 +18,30 @@ class Wep(object):
 
     def seedGen(self, iv, keyText):
         """Currently works with 40-bit and 104-bit"""
-        ### BEGIN HERE
         # [b"\x15'\x00"] <<< iv -- This is str() in Python2x
         # <class 'bytes'>
         # b"\x15'\x00"
         # 1234567890  <<< keyText str()
 
         keyLen = len(keyText)
+        """
+        #iVal = pkt[Dot11WEP].iv
+        iVal = re.search("b\'(.*)(?=(\'))", str(pkt[Dot11WEP].iv))[1]  ## Workaround for bytes problem...
+        """
 
         ## 40-bit
         if keyLen == 5:
             key = binascii.unhexlify(hexstr(keyText, onlyhex = 1).replace(' ', ''))
         elif keyLen == 10:
-            key = binascii.unhexlify(keyText)
+            key = binascii.unhexlify(keyText) ###HERE
+            #key = re.search("b\'(.*)(?=(\'))", str(binascii.unhexlify(keyText)))[1]
 
         ## 104-bit
         elif keyLen == 13:
             key = binascii.unhexlify(hexstr(keyText, onlyhex = 1).replace(' ', ''))
         elif keyLen == 26:
-            key = binascii.unhexlify(keyText)
+            key = binascii.unhexlify(keyText) ###HERE
+            #key = re.search("b\'(.*)(?=(\'))", str(binascii.unhexlify(keyText)))[1]
 
         return iv + key
 
@@ -48,7 +55,6 @@ class Wep(object):
                                            order = 'last',
                                            output = 'str',
                                            qty = 4))
-
         ## Remove RadioTap() info if required
         if genFCS is False:
             postPkt = RadioTap()/postPkt[RadioTap].payload
@@ -81,26 +87,35 @@ class Wep(object):
         # print([pkt[Dot11WEP].iv])
         # print(str([pkt[Dot11WEP].iv]))
         # print(type(pkt[Dot11WEP].iv))
-        iVal = pkt[Dot11WEP].iv
-        # print(iVal)
+
+        #iVal = pkt[Dot11WEP].iv
+        try:
+            #iVal = re.search("b\'(.*)(?=(\'))", str(pkt[Dot11WEP].iv))[1]  ## Workaround for bytes problem...
+            iVal = pkt[Dot11WEP].iv
+        except Exception as E:
+            print(E)
+
         # print(keyText)
         seed = self.seedGen(iVal, keyText)
 
         ## Remove the FCS so that we maintain packet size
-        pload = self.pt.byteRip(pkt[Dot11WEP],
-                                order = 'last',
-                                qty = 4,
-                                chop = True,
-                                output = 'str')
+        try:
+            pload = self.pt.byteRip(pkt[Dot11WEP],
+                                    order = 'last',
+                                    qty = 4,
+                                    chop = True,
+                                    output = 'str')
+        except Exception as E:
+            print(E)
 
         ## Return the stream, iv and seed
-        # print('\n\n\n')
-        # print(type(pload))
-        # print('\n')
-        # print(pload)
-        # print('\n\n\n')
-        # print(type(seed))
-        # print(seed)
+        #print('\n\n\n')
+        #print(type(pload))
+        #print('\n')
+        #print(pload)
+        #print('\n\n\n')
+        #print(type(seed))
+        #print(seed)
         return rc4(Dot11WEP(pload).wepdata, seed), iVal, seed
 
 
@@ -137,5 +152,5 @@ class Wep(object):
         bRip = self.pt.byteRip(encodedPacket[Dot11], chop = True, qty = 4, output = 'str')   ### GOT IT <<
         encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(bRip), 16)
         # encodedPacket[Dot11WEP].icv = int(self.pt.fcsGen(encodedPacket[Dot11], end = -2), 16)
-        print('ran -4?  Why are we doing ICV, again? ---> So our ICMP FCS is correct')
+        #print('ran -4?  Why are we doing ICV, again? ---> So our ICMP FCS is correct')
         return encodedPacket

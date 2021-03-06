@@ -23,7 +23,6 @@ def wepDecrypt(pkt, keyText, genFCS = True):
     By default will generate a packet with an FCS
     """
     stream, iVal, seed = wepCrypto.decoder(pkt, keyText)
-
     ## Return the decrypted packet and iv
     return wepCrypto.deBuilder(pkt, stream, genFCS), iVal
 
