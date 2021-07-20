@@ -1,0 +1,260 @@
+#!/usr/bin/python2.7
+
+import argparse, os, subprocess, sys, time
+from scapy.sendrecv import sniff
+from scapy.layers.inet import IP
+from scapy.layers.eap import Ether, EAPOL
+from scapy.sendrecv import sendp, sniff
+from scapy.utils import PcapReader, PcapWriter
+from pyDot11 import *
+#import pysnooper
+
+"""
+To-Do:
+    - Split up fromDecrypt and toDecrypt for push to tap0 accordingly
+    - Perhaps add option to write output to a file
+    - Add in FCS checks, etc..  More idealy done with modular imports
+"""
+class Handler(object):
+    """Handles aspects of dealing with Packets"""
+    def __init__(self):
+        #self.pw = PcapWriter('decrypted.pcap', sync=True)
+        pass
+
+    def fromDecrypt(self, packet, args, *cryptoList):
+        """Encompass steps for From-DS decrypt
+        Only pushes to tap0 if pkt.haslayer(IP)
+        """
+        if args.t == 'wep':
+            decodedPkt, iv = wepDecrypt(packet, args.p, False)
+        else:
+            tk = cryptoList[0].tgtInfo.get(cryptoList[3])[0]
+            encKey = cryptoList[0].tgtInfo.get(cryptoList[3])[1]
+            if cryptoList[0].encDict.get(cryptoList[3]) == 'ccmp':
+                origPkt, decodedPkt, PN = wpaDecrypt(encKey, packet, 'ccmp')
+            else:
+                origPkt, decodedPkt, PN = wpaDecrypt(tk, packet, 'tkip')
+
+        if decodedPkt.haslayer(IP):
+            #if args.i:
+            sendp(Ether(src = packet[Dot11].addr3,
+                        dst = packet[Dot11].addr1,
+                        type = 0x800)/decodedPkt[IP],
+            iface = 'tap{0}'.format(args.n),
+            verbose = 0)
+            #else:
+                #self.pw.write(decodedPkt)
+
+
+    def toDecrypt(self, packet, args, *cryptoList):
+        """Encompass steps for To-DS decrypt
+        Only pushes to tap0 if pkt.haslayer(IP)
+        """
+        if args.t == 'wep':
+            decodedPkt, iv = wepDecrypt(packet, args.p, False)
+        else:
+            tk = cryptoList[0].tgtInfo.get(cryptoList[3])[0]
+            encKey = cryptoList[0].tgtInfo.get(cryptoList[3])[1]
+            if cryptoList[0].encDict.get(cryptoList[3]) == 'ccmp':
+                decodedPkt, PN = wpaDecrypt(encKey, packet, 'ccmp')
+            else:
+                decodedPkt, PN = wpaDecrypt(tk, packet, 'tkip')
+
+        if decodedPkt.haslayer(IP):
+            #if args.i:
+            sendp(Ether(src = packet[Dot11].addr2,
+                        dst = packet[Dot11].addr3,
+                        type = 0x800)/decodedPkt[IP],
+            iface = 'tap{0}'.format(args.n),
+            verbose = 0)
+            #else:
+                #self.pw.write(decodedPkt)
+
+
+def pktFilter(packet):
+    """ Verify it is an encrypted data packet"""
+    if packet[Dot11].type == 2 and\
+       packet.haslayer(Dot11WEP) and\
+       (packet[Dot11].FCfield == 65 or packet[Dot11].FCfield == 66):
+        return True
+    else:
+        return False
+
+#@pysnooper.snoop('blah')
+def wepParser(pHandler, args):
+    def engine(packet):
+
+        ## Verify we care
+        if pktFilter(packet):
+
+            ## Both ways From-DS
+            if args.d == 'both' and packet[Dot11].addr2 == args.b.lower():
+                pHandler.fromDecrypt(packet, args)
+
+            ## Both ways To-DS
+            elif args.d == 'both' and packet[Dot11].addr1 == args.b.lower():
+                pHandler.toDecrypt(packet, args)
+
+            # From-DS
+            elif args.d == 'from' and packet[Dot11].addr2 == args.b.lower():
+                pHandler.fromDecrypt(packet, args)
+
+            # To-DS
+            elif args.d == 'to' and packet[Dot11].addr1 == args.b.lower():
+                pHandler.toDecrypt(packet, args)
+
+    return engine
+
+
+### Need to verify chksums and src/dst for Ether()
+def wpaParser(pHandler, args, shake, ccmp, tkip):
+    def engine(packet):
+        try:
+            if packet.haslayer(EAPOL):
+                shake.eapolGrab(packet)
+
+            ## Verify we care
+            elif pktFilter(packet):
+                tgtMAC = False
+
+                ## DEBUG
+                #print shake.availTgts
+
+                ## MAC verification
+                if packet.addr1 in shake.availTgts:
+                    tgtMAC = packet.addr1
+                elif packet.addr2 in shake.availTgts:
+                    tgtMAC = packet.addr2
+
+                if tgtMAC:
+
+                    ## Both ways From-DS
+                    if args.d == 'both' and packet[Dot11].addr2 == args.b.lower():
+                        pHandler.fromDecrypt(packet, args, shake, ccmp, tkip, tgtMAC)
+
+                    ## Both ways To-DS
+                    elif args.d == 'both' and packet[Dot11].addr1 == args.b.lower():
+                        pHandler.toDecrypt(packet, args, shake, ccmp, tkip, tgtMAC)
+
+                    # From-DS
+                    elif args.d == 'from' and packet[Dot11].addr2 == args.b.lower():
+                        pHandler.fromDecrypt(packet, args, shake, ccmp, tkip, tgtMAC)
+
+                    # To-DS
+                    elif args.d == 'to' and packet[Dot11].addr1 == args.b.lower():
+                        pHandler.toDecrypt(packet, args, shake, ccmp, tkip, tgtMAC)
+                else:
+                    pass
+            else:
+                pass
+        except:
+            pass
+    return engine
+
+
+def main(args):
+    pHandler = Handler()
+
+    ## Setup the tap
+    if not args.n:
+        dev = Tap()
+        subprocess.check_call('ifconfig tap0 up'.format(args.n), shell = True)
+        args.n = 0
+    else:
+        dev = Tap(args.n)
+        subprocess.check_call('ifconfig tap{0} up'.format(args.n), shell = True)
+
+    ## Setup the encryption
+    if args.t == 'wep':
+        packetParser = wepParser(pHandler, args)
+    if args.t == 'wpa':
+        if not args.e:
+            print ('wpa requires -e')
+            sys.exit(1)
+        ccmp = Ccmp()
+        tkip = Tkip()
+        shake = Handshake(args.p, args.e)
+        packetParser = wpaParser(pHandler, args, shake, ccmp, tkip)
+
+    ## Default direction of To-DS
+    if not args.d or args.d == 'to':
+        if not args.d:
+            args.d = 'to'
+        if args.t == 'wpa':
+            LFilter = lambda x: x[Dot11].FCfield == 65 or x.haslayer(EAPOL)
+        else:
+            LFilter = lambda x: x[Dot11].FCfield == 65
+
+    ## Deal with 2-way
+    elif args.d == 'both':
+        if args.t == 'wpa':
+            LFilter = lambda x: x[Dot11].FCfield == 65 or x[Dot11].FCfield == 66 or x.haslayer(EAPOL)
+        else:
+            LFilter = lambda x: x[Dot11].FCfield == 65 or x[Dot11].FCfield == 66
+
+    ## Deal with From-DS
+    elif args.d == 'from':
+        if args.t == 'wpa':
+            LFilter = lambda x: x[Dot11].FCfield == 66 or x.haslayer(EAPOL)
+        else:
+            LFilter = lambda x: x[Dot11].FCfield == 66
+
+    ## Sniff or Read
+    if args.i:
+        print ('pyDot11 up and running on tap{0}'.format(args.n))
+        sniff(iface = args.i,
+              prn = packetParser,
+              lfilter = LFilter,
+              store = 0)
+    elif args.f:
+        print ('pyDot11 up and running on tap{0}'.format(args.n))
+        try:
+            raw_input('Press Enter to Iterate through {0}'.format(args.f))
+        except:
+            input('Press Enter to Iterate through {0}'.format(args.f))
+        sTime = time.time()
+        if os.access(args.f, os.R_OK):
+            pCapture = PcapReader(args.f)
+            for pkt in pCapture:
+                packetParser(pkt)
+            #pHandler.pw.close()
+            print ('\nCompleted in %s seconds!\n' % str(time.time() - sTime))
+        else:
+            sys.stderr.write("{}: Cannot open input file: {}; skipping\n".format(sys.argv[0], pcap_file))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'pyDot11 - Encrypt and Decrypt 802.11 on-the-fly')
+
+    input_args = parser.add_mutually_exclusive_group(required=True)
+    input_args.add_argument('-i',
+                            metavar = '<Sniffing NIC>',
+                            help = 'NIC to sniff with')
+    input_args.add_argument('-f',
+                            metavar = '<Input PCAP>',
+                            help = 'PCAP from which to get frames')
+
+    parser.add_argument('-b',
+                        metavar = '<tgt BSSID>',
+                        required = True,
+                        help = 'Target BSSID ---------------------- required')
+    parser.add_argument('-d',
+                        choices = ['both', 'from', 'to'],
+                        metavar = '<Direction>',
+                        help = 'Direction -------------------- [Default: to]')
+    parser.add_argument('-e',
+                        metavar = '<tgt ESSID>',
+                        help = 'Target ESSID -------------- required for wpa')
+    parser.add_argument('-n',
+                        metavar = '<dev number>',
+                        help = 'Device number for Tap interface [Default: 0]')
+    parser.add_argument('-p',
+                        metavar = '<Passphrase>',
+                        required = True,
+                        help = 'Target passphrase ----------------- required')
+    parser.add_argument('-t',
+                        choices = ['wep', 'wpa'],
+                        metavar = '<Encryption type>',
+                        required = True,
+                        help = 'Encryption type ------------------- required')
+    args = parser.parse_args()
+    main(args)
