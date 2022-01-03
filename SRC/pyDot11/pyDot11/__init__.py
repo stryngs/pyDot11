@@ -14,15 +14,12 @@ from .lib import utils
 from .lib.wep import Wep
 import binascii
 import packetEssentials as PE
-#import pysnooper
 
-## WEP PORTION
-# @pysnooper.snoop('./snoop.log')
 def wepDecrypt(pkt, keyText, genFCS = True):
     """Encompasses the steps needed to decrypt a WEP packet
     By default will generate a packet with an FCS
     """
-    stream, iVal, seed = wepCrypto.decoder(pkt, keyText)
+    stream, iVal, seed = wepCrypto.decoder(pkt, keyText) ### Solved at this pt
     ## Return the decrypted packet and iv
     return wepCrypto.deBuilder(pkt, stream, genFCS), iVal
 
