@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name = 'pyDot11',
-    version = '2.3.2',
+    version = '2.3.4',
     author = 'stryngs',
     author_email = 'support@configitnow.com',
     packages = ['pyDot11', 'pyDot11.lib'],

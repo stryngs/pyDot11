@@ -1,7 +1,7 @@
 # Copyright (C) 2016 stryngs
 
 from rc4 import rc4
-from scapy.layers.dot11 import Dot11, Dot11WEP, RadioTap
+from scapy.layers.dot11 import Dot11, Dot11FCS, Dot11WEP, RadioTap
 from scapy.layers.l2 import LLC
 from scapy.packet import Raw
 from zlib import crc32
@@ -14,12 +14,13 @@ from .lib import utils
 from .lib.wep import Wep
 import binascii
 import packetEssentials as PE
+from scapy.all import *
 
 def wepDecrypt(pkt, keyText, genFCS = True):
     """Encompasses the steps needed to decrypt a WEP packet
     By default will generate a packet with an FCS
     """
-    stream, iVal, seed = wepCrypto.decoder(pkt, keyText) ### Solved at this pt
+    stream, iVal, seed = wepCrypto.decoder(pkt, keyText)
     ## Return the decrypted packet and iv
     return wepCrypto.deBuilder(pkt, stream, genFCS), iVal
 

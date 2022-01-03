@@ -30,7 +30,10 @@ if decodedPkt[Dot11].FCfield == 65:
 elif decodedPkt[Dot11].FCfield == 66:
     decodedPkt[Dot11].FCfield = 2
 
+## Oddball and no longer seeing FCS for pings, this packet might be considered legacy?
 del(decodedPkt[Dot11FCS].fcs)
+
+## The packet looks like it should and is fully decrypted
 patience = decodedPkt.__class__(binascii.unhexlify(hexstr(decodedPkt, onlyhex = 1).replace(' ', '')))
 
 

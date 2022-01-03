@@ -4,7 +4,7 @@ from rc4 import rc4
 from scapy.all import *
 
 keyText = '0123456789'
-pkts = rdpcap('../../PCAPs/ICMPs/wep_pings.pcap')
+pkts = rdpcap('../PCAPs/ICMPs/wep_pings.pcap')
 pkt = pkts[0]
 
 pkt, iVal = pyDot11.wepDecrypt(pkt, keyText)

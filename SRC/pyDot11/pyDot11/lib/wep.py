@@ -3,10 +3,11 @@ import packetEssentials as PE
 import re
 from rc4 import rc4
 # from rc4 import RC4
-from scapy.layers.dot11 import Dot11, Dot11FCS, Dot11WEP, RadioTap
-from scapy.layers.l2 import LLC
-from scapy.packet import Padding
-from scapy.utils import hexstr
+# from scapy.layers.dot11 import Dot11, Dot11FCS, Dot11WEP, RadioTap
+from scapy.all import *
+# from scapy.layers.l2 import LLC
+# from scapy.packet import Padding
+# from scapy.utils import hexstr
 from zlib import crc32
 
 class Wep(object):
@@ -25,7 +26,7 @@ class Wep(object):
         if keyLen == 5:
             key = binascii.unhexlify(hexstr(keyText, onlyhex = 1).replace(' ', ''))
         elif keyLen == 10:
-            key = binascii.unhexlify(keyText) ###HERE
+            key = binascii.unhexlify(keyText)
 
         ## 104-bit
         elif keyLen == 13:
@@ -44,6 +45,7 @@ class Wep(object):
         ## Rip off the Dot11WEP layer
         del postPkt[Dot11WEP]
 
+        ## Old way of hexstr
         newStream = []
         newStream.append(" ".join(map(lambda stream:"%02x"%ord(stream), stream)))
         newStream = "  ".join(newStream)
@@ -58,7 +60,7 @@ class Wep(object):
             decodedPkt[Dot11].FCfield = 2
 
         ## Create new FCS
-        del(decodedPkt[Dot11FCS].fcs)
+        # del(decodedPkt[Dot11WEP].fcs)                                         ### Strange how this is no longer vis with curr packets
         return decodedPkt.__class__(binascii.unhexlify(hexstr(decodedPkt, onlyhex = 1).replace(' ', '')))
 
 
@@ -107,7 +109,7 @@ class Wep(object):
             encodedPacket[Dot11].FCfield = 66
 
 
-### Why is the FCS blown away to nothing at this point.
+        ### Why is the FCS blown away to nothing at this point.
 
 
         ## Add the ICV
