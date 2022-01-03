@@ -8,7 +8,7 @@ from scapy.utils import rdpcap, hexstr, PcapWriter, wrpcap
 from scapy.layers.dot11 import Dot11
 
 if __name__ == '__main__':
-    
+
     ## Work with pyDot11
     p = utils.Packet()
     ccmpCrypto = Ccmp()
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     ## PCAP specific data
     ssid = 'wifi4'
     passphrase = 'P@$$w0rd1!P@$$w0rd1!'
-    pcap = 'SRCs/demo.pcap'
+    pcap = 'demo.pcap'
     pktStream = rdpcap(pcap)
     anoPkt = pktStream[0]
     snoPkt = pktStream[1]
@@ -41,12 +41,12 @@ if __name__ == '__main__':
     origPkt, decryptedPkt, stream, PN = wpaDecrypt(tk, tgtPkt, 'ccmp')
     PN[5] += 1
     encryptedPkt = wpaEncrypt(tk, tgtPkt, decryptedPkt, decryptedPkt[LLC], PN)
-    
+
     ## User output
     pktdump = PcapWriter('example.pcap', append = True, sync = True)
     pktdump.write(pktStream[0:4])
     pktdump.write(encryptedPkt)
     wrpcap('inbound.pcap', decryptedPkt)
-    print '\nCheck out example.pcap'
-    print 'ESSID: wifi4'
-    print 'PASSWORD: P@$$w0rd1!P@$$w0rd1!'
+    print ('\nCheck out example.pcap')
+    print ('ESSID: wifi4')
+    print ('PASSWORD: P@$$w0rd1!P@$$w0rd1!')
