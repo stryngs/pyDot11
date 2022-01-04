@@ -1,6 +1,9 @@
 # pyDot11
 
-## pyDot11 currently supports the following:
+## Growing pains
+pyDot11 is currently undergoing the shift from Python2 over to Python3.  This will take time.
+
+## pyDot11 currently supports the following using a combination of Python2 and Python3:
 * Decryption of WEP
 * Encryption of WEP
 * Decryption of WPA
