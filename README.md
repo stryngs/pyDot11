@@ -1,5 +1,7 @@
 # pyDot11
 
+[![Join the chat at https://gitter.im/ICSec/pyDot11](https://badges.gitter.im/ICSec/pyDot11.svg)](https://gitter.im/ICSec/pyDot11?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ## pyDot11 currently supports the following:
 * Decryption of WEP
 * Encryption of WEP
