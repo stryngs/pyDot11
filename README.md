@@ -1,8 +1,9 @@
 # pyDot11
 
-[![Join the chat at https://gitter.im/ICSec/pyDot11](https://badges.gitter.im/ICSec/pyDot11.svg)](https://gitter.im/ICSec/pyDot11?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+## Growing pains
+pyDot11 is currently undergoing the shift from Python2 over to Python3.  This will take time.
 
-## pyDot11 currently supports the following:
+## pyDot11 currently supports the following using a combination of Python2 and Python3:
 * Decryption of WEP
 * Encryption of WEP
 * Decryption of WPA
